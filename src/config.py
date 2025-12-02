@@ -61,5 +61,6 @@ command = "componentize-py -w spin-http componentize {module_name} -o app.wasm"
 # Valid formats: 100m (millicores), 128Mi (mebibytes), 1Gi (gibibytes), etc.
 RESOURCE_FORMAT_PATTERN = r'^[0-9]+(\.[0-9]+)?(m|Ki|Mi|Gi|Ti|Pi|Ei|k|M|G|T|P|E)?$'
 
+
 # Global config instance
 config = Config()
