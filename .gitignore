@@ -10,3 +10,5 @@ wheels/
 .venv
 # AI
 .kiro
+
+reference_docs/*

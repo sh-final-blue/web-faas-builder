@@ -1,8 +1,6 @@
 """FastAPI routes for Spin K8s Deployment Tool."""
 
-import uuid
-
-from fastapi import APIRouter, File, Form, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from src.models.api_models import (
     BuildResponse,
@@ -13,8 +11,12 @@ from src.models.api_models import (
     ScaffoldResponse,
     TaskStatusResponse,
 )
+from src.services.task_manager import TaskManager
 
 router = APIRouter()
+
+# Global task manager instance
+task_manager = TaskManager()
 
 
 @router.post("/build", response_model=BuildResponse, status_code=202)
@@ -26,7 +28,7 @@ async def build(
     
     Accepts a .py file or .zip archive and starts a background build task.
     """
-    task_id = str(uuid.uuid4())
+    task_id = task_manager.create_task()
     return BuildResponse(
         task_id=task_id,
         status="pending",
@@ -37,18 +39,22 @@ async def build(
 @router.get("/tasks/{task_id}", response_model=TaskStatusResponse)
 async def get_task_status(task_id: str) -> TaskStatusResponse:
     """Get the status of a background task."""
+    task = task_manager.get_task(task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail=f"Task not found: {task_id}")
+    
     return TaskStatusResponse(
-        task_id=task_id,
-        status="pending",
-        result=None,
-        error=None,
+        task_id=task.task_id,
+        status=task.status.value,
+        result=task.result,
+        error=task.error,
     )
 
 
 @router.post("/push", response_model=BuildResponse, status_code=202)
 async def push(request: PushRequest) -> BuildResponse:
     """Push a built Spin application to a container registry."""
-    task_id = str(uuid.uuid4())
+    task_id = task_manager.create_task()
     return BuildResponse(
         task_id=task_id,
         status="pending",
@@ -106,7 +112,7 @@ async def build_and_push(
     
     Accepts a .py file or .zip archive, builds it, and pushes to the registry.
     """
-    task_id = str(uuid.uuid4())
+    task_id = task_manager.create_task()
     return BuildResponse(
         task_id=task_id,
         status="pending",
