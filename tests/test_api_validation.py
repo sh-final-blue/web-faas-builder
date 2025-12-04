@@ -127,20 +127,22 @@ def scaffold_request_wrong_types(draw):
 @st.composite
 def deploy_request_wrong_types(draw):
     """Generate deploy request with wrong field types."""
-    # port and target_port should be int
-    wrong_type = draw(st.sampled_from(["string", "list", "dict"]))
+    # replicas should be int, enable_autoscaling should be bool
+    wrong_type = draw(st.sampled_from(["string_replicas", "list_replicas", "dict_replicas", "string_autoscaling"]))
     
     data = {
         "namespace": draw(st.text(min_size=1, max_size=63)),
         "image_ref": draw(st.text(min_size=1, max_size=200)),
     }
     
-    if wrong_type == "string":
-        data["port"] = "not_a_number"
-    elif wrong_type == "list":
-        data["port"] = [80, 443]
-    elif wrong_type == "dict":
-        data["port"] = {"value": 80}
+    if wrong_type == "string_replicas":
+        data["replicas"] = "not_a_number"
+    elif wrong_type == "list_replicas":
+        data["replicas"] = [1, 2, 3]
+    elif wrong_type == "dict_replicas":
+        data["replicas"] = {"value": 1}
+    elif wrong_type == "string_autoscaling":
+        data["enable_autoscaling"] = "not_a_bool"
     
     return data
 

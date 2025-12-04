@@ -41,7 +41,10 @@ class ScaffoldResponse(BaseModel):
 
 
 class DeployRequest(BaseModel):
-    """Request model for deploy endpoint."""
+    """Request model for deploy endpoint.
+    
+    Requirements: 10.1, 10.2, 10.5, 10.6, 10.7
+    """
     app_name: str | None = None
     namespace: str
     service_account: str | None = None
@@ -49,18 +52,27 @@ class DeployRequest(BaseModel):
     memory_limit: str | None = None
     cpu_request: str | None = None
     memory_request: str | None = None
-    service_type: str | None = None
-    port: int | None = None
-    target_port: int | None = None
     image_ref: str
+    enable_autoscaling: bool = True
+    replicas: int | None = None
+    use_spot: bool = True
+    custom_tolerations: list[dict] | None = None
+    custom_affinity: dict | None = None
 
 
 class DeployResponse(BaseModel):
-    """Response model for deploy endpoint."""
+    """Response model for deploy endpoint.
+    
+    Requirements: 10.4, 10.5, 11.1, 11.2
+    """
     app_name: str
     namespace: str
     service_name: str | None = None
+    service_status: str = "pending"
     endpoint: str | None = None
+    enable_autoscaling: bool = True
+    use_spot: bool = True
+    error: str | None = None
 
 
 class TaskStatusResponse(BaseModel):
