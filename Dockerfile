@@ -31,7 +31,17 @@ COPY src/ ./src/
 # -----------------------------------------------------------------------------
 # Stage 2: Spin Builder - Prepare Spin Python venv template
 # -----------------------------------------------------------------------------
-FROM ghcr.io/fermyon/spin:v2.7 AS spin-builder
+FROM python:3.12-slim AS spin-builder
+
+# Install curl and git for downloading spin and templates
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Spin CLI using official install script
+RUN curl -fsSL https://spinframework.dev/downloads/install.sh | bash && \
+    mv spin /usr/local/bin/
 
 # Create venv template with componentize-py and spin-sdk
 RUN python3 -m venv /opt/spin-python-venv && \
