@@ -9,19 +9,28 @@ class BuildRequest(BaseModel):
 
 
 class BuildResponse(BaseModel):
-    """Response model for build and push operations."""
+    """Response model for build and push operations.
+    
+    Requirements: 15.1 - Include S3 source path in response
+    """
     task_id: str
     status: str
     message: str
+    source_s3_path: str | None = None
 
 
 class PushRequest(BaseModel):
-    """Request model for push endpoint."""
+    """Request model for push endpoint.
+    
+    Requirements: 16.3, 16.4 - Include workspace_id and s3_source_path for Core Service
+    """
     registry_url: str
     username: str
     password: str
     tag: str | None = None
     app_dir: str
+    workspace_id: str
+    s3_source_path: str | None = None
 
 
 class ScaffoldRequest(BaseModel):
@@ -81,3 +90,27 @@ class TaskStatusResponse(BaseModel):
     status: str
     result: dict | None = None
     error: str | None = None
+
+
+class TaskListItem(BaseModel):
+    """Item in task list response.
+    
+    Requirements: 17.8 - List all build tasks for a workspace
+    """
+    task_id: str
+    status: str
+    app_name: str | None = None
+    created_at: str
+    updated_at: str
+    result: dict | None = None
+    error: str | None = None
+
+
+class TaskListResponse(BaseModel):
+    """Response model for list tasks endpoint.
+    
+    Requirements: 17.8 - Query all build tasks for a workspace from DynamoDB
+    """
+    workspace_id: str
+    tasks: list[TaskListItem]
+    count: int
