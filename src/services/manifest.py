@@ -127,29 +127,9 @@ class ManifestService:
             
             data["spec"]["resources"] = resources
         
-        # Add Spot instance configuration (Requirements 14.1, 14.2, 14.3)
-        if manifest.use_spot:
-            # Build tolerations list with default Spot toleration
-            tolerations_list = [self._toleration_to_dict(self.DEFAULT_SPOT_TOLERATION)]
-            
-            # Add custom tolerations if any (Requirement 14.4)
-            for toleration in manifest.tolerations:
-                tolerations_list.append(self._toleration_to_dict(toleration))
-            
-            data["spec"]["tolerations"] = tolerations_list
-            
-            # Add default Spot affinity (Requirement 14.2)
-            data["spec"]["affinity"] = self._node_affinity_to_dict(self.DEFAULT_SPOT_AFFINITY)
-        elif manifest.tolerations:
-            # use_spot is false but custom tolerations exist (Requirement 14.3)
-            tolerations_list = [
-                self._toleration_to_dict(t) for t in manifest.tolerations
-            ]
-            data["spec"]["tolerations"] = tolerations_list
-        
-        # Add custom node affinity if specified (when use_spot is false)
-        if not manifest.use_spot and manifest.node_affinity:
-            data["spec"]["affinity"] = self._node_affinity_to_dict(manifest.node_affinity)
+        # NOTE: SpinApp CRD v1alpha1 does not support tolerations/affinity fields
+        # These fields are ignored for now until SpinKube supports pod scheduling options
+        # Spot instance scheduling should be handled at the SpinKube operator level
         
         return yaml.dump(data, default_flow_style=False, sort_keys=False)
     
