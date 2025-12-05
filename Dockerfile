@@ -76,6 +76,9 @@ COPY --from=spin-builder /opt/spin-python-venv /opt/spin-python-venv
 # Copy Python packages from builder
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 
+# Copy Python bin scripts (mypy, etc.) from builder
+COPY --from=builder /usr/local/bin/mypy /usr/local/bin/mypy
+
 # Copy application
 COPY --from=builder /app /app
 
