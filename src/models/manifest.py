@@ -195,6 +195,14 @@ class SpinAppManifest:
     use_spot: bool = True
     tolerations: list[Toleration] = field(default_factory=list)
     node_affinity: Optional[NodeAffinity] = None
+    # Labels for the SpinApp metadata
+    labels: dict[str, str] = field(default_factory=lambda: {
+        "app.kubernetes.io/managed-by": "blue-faas",
+    })
+    # Pod labels for the deployed Pods (spec.podLabels)
+    pod_labels: dict[str, str] = field(default_factory=lambda: {
+        "faas": "true",
+    })
     
     def __post_init__(self):
         """Validate manifest fields after initialization."""

@@ -90,6 +90,14 @@ class ManifestService:
             },
         }
         
+        # Add labels to metadata
+        if manifest.labels:
+            data["metadata"]["labels"] = manifest.labels
+        
+        # Add podLabels to spec (labels applied to Pods)
+        if manifest.pod_labels:
+            data["spec"]["podLabels"] = manifest.pod_labels
+        
         # Include replicas only when enableAutoscaling is false (Requirement 13.4)
         # Omit replicas when enableAutoscaling is true (Requirement 13.3)
         if not manifest.enable_autoscaling and manifest.replicas is not None:
@@ -323,6 +331,16 @@ class ManifestService:
             if not (t.key == "spot" and t.operator == "Exists" and t.effect == "NoSchedule")
         ]
         
+        # Parse labels from metadata
+        labels = metadata.get("labels", {
+            "app.kubernetes.io/managed-by": "blue-faas",
+        })
+        
+        # Parse podLabels from spec
+        pod_labels = spec.get("podLabels", {
+            "faas": "true",
+        })
+        
         try:
             return SpinAppManifest(
                 api_version=data.get("apiVersion", "core.spinoperator.dev/v1alpha1"),
@@ -337,6 +355,8 @@ class ManifestService:
                 use_spot=use_spot,
                 tolerations=custom_tolerations,
                 node_affinity=node_affinity if not use_spot else None,
+                labels=labels,
+                pod_labels=pod_labels,
             )
         except ValueError as e:
             raise ManifestParseError(f"Invalid manifest data: {e}")
