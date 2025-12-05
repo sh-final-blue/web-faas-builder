@@ -369,7 +369,29 @@ def run_push_task(
         else:
             # Fall back to local push (Mock API behavior - Requirement 16.1)
             app_path = Path(app_dir)
-            
+            temp_dir_created = False
+
+            # If local app_dir doesn't exist but s3_source_path is provided, download from S3
+            if not app_path.exists() and s3_source_path:
+                import tempfile
+                temp_work_dir = tempfile.mkdtemp(prefix="spin_push_")
+                app_path = Path(temp_work_dir)
+                temp_dir_created = True
+
+                # Download source from S3
+                download_result = s3_storage_service.download_source_directory(
+                    s3_source_path,
+                    app_path,
+                )
+
+                if not download_result.success:
+                    task_manager.update_build_status(
+                        task_id,
+                        BuildStatus.FAILED,
+                        error=f"Failed to download from S3: {download_result.error}"
+                    )
+                    return
+
             # Verify app directory exists
             if not app_path.exists():
                 # Requirement 17.6 - Update ErrorMessage field
@@ -379,15 +401,21 @@ def run_push_task(
                     error=f"Application directory not found: {app_dir}"
                 )
                 return
-            
-            # Execute the full push pipeline (login + push)
-            push_result = push_service.full_push(
-                app_dir=app_path,
-                registry_url=registry_url,
-                username=username,
-                password=password,
-                tag=tag,
-            )
+
+            try:
+                # Execute the full push pipeline (login + push)
+                push_result = push_service.full_push(
+                    app_dir=app_path,
+                    registry_url=registry_url,
+                    username=username,
+                    password=password,
+                    tag=tag,
+                )
+            finally:
+                # Clean up temp directory if created
+                if temp_dir_created:
+                    import shutil
+                    shutil.rmtree(app_path, ignore_errors=True)
             
             if push_result.success:
                 # Requirement 17.5 - Update ImageUrl field

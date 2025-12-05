@@ -25,6 +25,14 @@ class S3UploadResult:
     error: Optional[str] = None
 
 
+@dataclass
+class S3DownloadResult:
+    """Result of an S3 download operation."""
+    success: bool
+    local_path: Optional[Path] = None
+    error: Optional[str] = None
+
+
 class S3StorageService:
     """Service for storing build artifacts in S3.
     
@@ -265,4 +273,89 @@ class S3StorageService:
             return S3UploadResult(
                 success=False,
                 error=f"Unexpected error uploading to S3: {str(e)}"
+            )
+
+    def download_source_directory(
+        self,
+        s3_path: str,
+        local_dir: Path,
+    ) -> S3DownloadResult:
+        """Download all files from S3 source path to local directory.
+
+        Args:
+            s3_path: S3 URI (e.g., s3://bucket/build-sources/workspace/task/)
+            local_dir: Local directory to download files to
+
+        Returns:
+            S3DownloadResult with success status and local path or error message
+        """
+        try:
+            # Parse S3 URI
+            if not s3_path.startswith("s3://"):
+                return S3DownloadResult(
+                    success=False,
+                    error=f"Invalid S3 path: {s3_path}"
+                )
+
+            # Remove s3:// prefix and split bucket/key
+            path_without_prefix = s3_path[5:]
+            parts = path_without_prefix.split("/", 1)
+            bucket = parts[0]
+            prefix = parts[1] if len(parts) > 1 else ""
+
+            # Remove trailing slash from prefix
+            prefix = prefix.rstrip("/")
+
+            # Create local directory if not exists
+            local_dir.mkdir(parents=True, exist_ok=True)
+
+            # List all objects with the prefix
+            paginator = self.client.get_paginator("list_objects_v2")
+            pages = paginator.paginate(Bucket=bucket, Prefix=prefix)
+
+            downloaded_count = 0
+            for page in pages:
+                if "Contents" not in page:
+                    continue
+
+                for obj in page["Contents"]:
+                    s3_key = obj["Key"]
+                    # Get relative path from prefix
+                    relative_path = s3_key[len(prefix):].lstrip("/")
+                    if not relative_path:
+                        continue
+
+                    local_file_path = local_dir / relative_path
+
+                    # Create parent directories if needed
+                    local_file_path.parent.mkdir(parents=True, exist_ok=True)
+
+                    # Download the file
+                    self.client.download_file(bucket, s3_key, str(local_file_path))
+                    downloaded_count += 1
+
+            if downloaded_count == 0:
+                return S3DownloadResult(
+                    success=False,
+                    error=f"No files found at S3 path: {s3_path}"
+                )
+
+            return S3DownloadResult(success=True, local_path=local_dir)
+
+        except ClientError as e:
+            error_code = e.response.get("Error", {}).get("Code", "Unknown")
+            error_msg = e.response.get("Error", {}).get("Message", str(e))
+            return S3DownloadResult(
+                success=False,
+                error=f"S3 ClientError ({error_code}): {error_msg}"
+            )
+        except BotoCoreError as e:
+            return S3DownloadResult(
+                success=False,
+                error=f"S3 BotoCoreError: {str(e)}"
+            )
+        except Exception as e:
+            return S3DownloadResult(
+                success=False,
+                error=f"Unexpected error downloading from S3: {str(e)}"
             )
