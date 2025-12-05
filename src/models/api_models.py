@@ -51,7 +51,7 @@ class ScaffoldResponse(BaseModel):
 
 class DeployRequest(BaseModel):
     """Request model for deploy endpoint.
-    
+
     Requirements: 10.1, 10.2, 10.5, 10.6, 10.7
     """
     app_name: str | None = None
@@ -67,6 +67,7 @@ class DeployRequest(BaseModel):
     use_spot: bool = True
     custom_tolerations: list[dict] | None = None
     custom_affinity: dict | None = None
+    function_id: str | None = None
 
 
 class DeployResponse(BaseModel):

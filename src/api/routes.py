@@ -538,6 +538,11 @@ async def deploy(request: DeployRequest) -> DeployResponse:
                 value=t.get("value"),
             ))
     
+    # Build pod_labels with function_id if provided
+    pod_labels: dict[str, str] = {"faas": "true"}
+    if request.function_id:
+        pod_labels["function_id"] = request.function_id
+
     # Create manifest with autoscaling and Spot configuration
     # (Requirements 13.1, 13.2, 13.3, 13.4, 14.1, 14.2, 14.3, 14.4)
     manifest = SpinAppManifest(
@@ -550,6 +555,7 @@ async def deploy(request: DeployRequest) -> DeployResponse:
         enable_autoscaling=request.enable_autoscaling,
         use_spot=request.use_spot,
         tolerations=custom_tolerations,
+        pod_labels=pod_labels,
     )
     
     # Generate YAML manifest
