@@ -36,6 +36,7 @@ FROM python:3.12-slim AS spin-builder
 # Install curl for downloading spin
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    git \ 
     && rm -rf /var/lib/apt/lists/*
 
 # Install Spin CLI by directly downloading the binary (skip template installation)
@@ -44,6 +45,12 @@ RUN curl -fsSL "https://github.com/spinframework/spin/releases/download/${SPIN_V
     tar -xzf spin.tar.gz && \
     mv spin /usr/local/bin/ && \
     rm -rf spin.tar.gz *.pem *.sig README.md LICENSE
+
+# Install spin kube plugin for scaffold command (in spin-builder stage)
+# Set SPIN_HOME explicitly to ensure consistent plugin location
+ENV SPIN_HOME=/opt/spin
+RUN mkdir -p /opt/spin && \
+    /usr/local/bin/spin plugins install kube --yes
 
 # Create venv template with componentize-py and spin-sdk
 # Pin versions for compatibility (componentize-py 0.17.2 works with spin-sdk 3.4.1)
@@ -61,6 +68,7 @@ WORKDIR /app
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Install kubectl for K8s operations
@@ -70,6 +78,9 @@ RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/s
 
 # Copy Spin CLI from spin-builder
 COPY --from=spin-builder /usr/local/bin/spin /usr/local/bin/spin
+
+# Copy Spin plugins (kube) from spin-builder - pre-installed in builder stage
+COPY --from=spin-builder /opt/spin /opt/spin
 
 # Copy Spin Python venv template
 COPY --from=spin-builder /opt/spin-python-venv /opt/spin-python-venv
@@ -85,7 +96,7 @@ COPY --from=builder /app /app
 
 # Create non-root user for security
 RUN useradd --create-home --shell /bin/bash appuser && \
-    chown -R appuser:appuser /app /opt/spin-python-venv
+    chown -R appuser:appuser /app /opt/spin-python-venv /opt/spin
 
 USER appuser
 
@@ -93,6 +104,8 @@ USER appuser
 # AWS credentials are provided via IRSA - no need to set AWS_ACCESS_KEY_ID/SECRET
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
+    # Spin home directory for plugins
+    SPIN_HOME=/opt/spin \
     # Spin Python venv template path
     SPIN_PYTHON_VENV_TEMPLATE=/opt/spin-python-venv \
     # DynamoDB table name
