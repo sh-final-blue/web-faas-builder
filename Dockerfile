@@ -33,15 +33,17 @@ COPY src/ ./src/
 # -----------------------------------------------------------------------------
 FROM python:3.12-slim AS spin-builder
 
-# Install curl and git for downloading spin and templates
+# Install curl for downloading spin
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
-    git \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Spin CLI using official install script
-RUN curl -fsSL https://spinframework.dev/downloads/install.sh | bash && \
-    mv spin /usr/local/bin/
+# Install Spin CLI by directly downloading the binary (skip template installation)
+ARG SPIN_VERSION=v3.5.1
+RUN curl -fsSL "https://github.com/spinframework/spin/releases/download/${SPIN_VERSION}/spin-${SPIN_VERSION}-linux-amd64.tar.gz" -o spin.tar.gz && \
+    tar -xzf spin.tar.gz && \
+    mv spin /usr/local/bin/ && \
+    rm -rf spin.tar.gz *.pem *.sig README.md LICENSE
 
 # Create venv template with componentize-py and spin-sdk
 RUN python3 -m venv /opt/spin-python-venv && \
