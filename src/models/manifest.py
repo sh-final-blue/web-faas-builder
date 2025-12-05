@@ -189,7 +189,7 @@ class SpinAppManifest:
     replicas: Optional[int] = None
     service_account: Optional[str] = None
     resources: ResourceLimits = field(default_factory=ResourceLimits)
-    api_version: str = "core.spinoperator.dev/v1alpha1"
+    api_version: str = "core.spinkube.dev/v1alpha1"
     kind: str = "SpinApp"
     enable_autoscaling: bool = True
     use_spot: bool = True

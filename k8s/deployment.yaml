@@ -37,7 +37,7 @@ spec:
       
       containers:
         - name: blue-faas
-          image: ACCOUNT_ID.dkr.ecr.ap-northeast-2.amazonaws.com/blue-faas:latest
+          image: 217350599014.dkr.ecr.ap-northeast-2.amazonaws.com/blue-final-faas-builder:latest
           imagePullPolicy: Always
           
           ports:

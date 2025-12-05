@@ -343,7 +343,7 @@ class ManifestService:
         
         try:
             return SpinAppManifest(
-                api_version=data.get("apiVersion", "core.spinoperator.dev/v1alpha1"),
+                api_version=data.get("apiVersion", "core.spinkube.dev/v1alpha1"),
                 kind=data.get("kind", "SpinApp"),
                 name=metadata["name"],
                 namespace=metadata.get("namespace", "default"),

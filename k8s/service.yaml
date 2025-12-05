@@ -6,7 +6,7 @@ metadata:
   labels:
     app.kubernetes.io/name: blue-faas
 spec:
-  type: ClusterIP
+  type: NodePort
   selector:
     app.kubernetes.io/name: blue-faas
   ports:
@@ -14,3 +14,4 @@ spec:
       port: 80
       targetPort: http
       protocol: TCP
+      nodePort: 31257

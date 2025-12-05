@@ -23,7 +23,7 @@ class Config:
     default_replicas: int = 1
     
     # SpinApp CRD settings
-    spinapp_api_version: str = "core.spinoperator.dev/v1alpha1"
+    spinapp_api_version: str = "core.spinkube.dev/v1alpha1"
     spinapp_kind: str = "SpinApp"
     
     # Default resource limits
