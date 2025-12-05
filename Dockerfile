@@ -50,7 +50,9 @@ RUN curl -fsSL "https://github.com/spinframework/spin/releases/download/${SPIN_V
 # Set SPIN_HOME explicitly to ensure consistent plugin location
 ENV SPIN_HOME=/opt/spin
 RUN mkdir -p /opt/spin && \
-    /usr/local/bin/spin plugins install kube --yes
+    /usr/local/bin/spin plugins update && \
+    /usr/local/bin/spin plugins install kube --yes || \
+    /usr/local/bin/spin plugins install --url https://github.com/spinframework/spin-plugin-kube/releases/download/v0.4.0/kube.json --yes
 
 # Create venv template with componentize-py and spin-sdk
 # Pin versions for compatibility (componentize-py 0.17.2 works with spin-sdk 3.4.1)
