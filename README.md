@@ -79,7 +79,8 @@ curl -X POST http://localhost:8000/api/v1/deploy \
     "namespace": "default",
     "image_ref": "123456789.dkr.ecr.ap-northeast-2.amazonaws.com/spin-app:v1.0.0",
     "cpu_limit": "500m",
-    "memory_limit": "128Mi"
+    "memory_limit": "128Mi",
+    "function_id": "fn-12345"
   }'
 ```
 
@@ -130,6 +131,7 @@ curl -X POST http://localhost:8000/api/v1/deploy \
 | `AWS_REGION` | AWS 리전 | `ap-northeast-2` |
 | `SPIN_PYTHON_VENV_TEMPLATE` | Spin Python venv 템플릿 경로 | `/opt/spin-python-venv` |
 | `CORE_SERVICE_ENDPOINT` | Core Service 엔드포인트 (비어있으면 Mock 사용) | - |
+| `ECR_REGISTRY_URL` | ECR 레지스트리 URL | `217350599014.dkr.ecr.ap-northeast-2.amazonaws.com/blue-final-faas-app` |
 
 ### 로컬 개발 환경 설정
 
@@ -183,11 +185,16 @@ metadata:
 spec:
   podLabels:
     faas: "true"
+    function_id: "fn-12345"  # deploy 요청 시 function_id 지정 시 추가
 ```
 
 FaaS Pod 조회:
 ```bash
+# 모든 FaaS Pod 조회
 kubectl get pods -l faas=true
+
+# 특정 function_id로 조회
+kubectl get pods -l function_id=fn-12345
 ```
 
 ## 테스트
@@ -211,6 +218,20 @@ aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS
 docker tag blue-faas:latest ACCOUNT_ID.dkr.ecr.ap-northeast-2.amazonaws.com/blue-faas:latest
 docker push ACCOUNT_ID.dkr.ecr.ap-northeast-2.amazonaws.com/blue-faas:latest
 ```
+
+## Changelog
+
+### 2025-12-05
+
+#### Added
+- **function_id 지원**: `/api/v1/deploy` API에 `function_id` 파라미터 추가
+  - 배포 시 `function_id`를 지정하면 SpinApp의 `podLabels`에 `function_id` 레이블이 추가됨
+  - 이를 통해 특정 함수의 Pod를 쉽게 조회하고 관리 가능
+  - 예: `kubectl get pods -l function_id=fn-12345`
+
+- **ECR 레지스트리 URL 환경변수**: `ECR_REGISTRY_URL` 환경변수 추가
+  - 기본값: `217350599014.dkr.ecr.ap-northeast-2.amazonaws.com/blue-final-faas-app`
+  - `src/config.py`, `.env.example`, `k8s/configmap.yaml`에 설정 추가
 
 ## 라이선스
 

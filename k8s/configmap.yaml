@@ -18,3 +18,5 @@ data:
   LOG_LEVEL: "INFO"
   # Core Service endpoint (empty = use mock)
   CORE_SERVICE_ENDPOINT: ""
+  # ECR registry URL for SpinApp images
+  ECR_REGISTRY_URL: "217350599014.dkr.ecr.ap-northeast-2.amazonaws.com/blue-final-faas-app"
