@@ -48,10 +48,10 @@ RUN curl -fsSL "https://github.com/spinframework/spin/releases/download/${SPIN_V
 
 # Install spin kube plugin for scaffold command (in spin-builder stage)
 # Set SPIN_HOME explicitly to ensure consistent plugin location
+# Disable telemetry to avoid otel initialization errors in CI
 ENV SPIN_HOME=/opt/spin
+ENV OTEL_SDK_DISABLED=true
 RUN mkdir -p /opt/spin && \
-    /usr/local/bin/spin plugins update && \
-    /usr/local/bin/spin plugins install kube --yes || \
     /usr/local/bin/spin plugins install --url https://github.com/spinframework/spin-plugin-kube/releases/download/v0.4.0/kube.json --yes
 
 # Create venv template with componentize-py and spin-sdk
