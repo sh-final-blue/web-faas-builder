@@ -71,28 +71,50 @@ class PushService:
         return hasher.hexdigest()[:12]
 
 
+    def _extract_registry_host(self, registry_url: str) -> str:
+        """Extract just the registry hostname from a full image URL.
+
+        For ECR, spin registry login needs just the host, not the repository.
+        e.g., '217350599014.dkr.ecr.ap-northeast-2.amazonaws.com/repo' -> '217350599014.dkr.ecr.ap-northeast-2.amazonaws.com'
+
+        Args:
+            registry_url: Full registry URL possibly including repository
+
+        Returns:
+            Just the registry hostname
+        """
+        # Remove any tag if present
+        url = registry_url.split(":")[0] if ":" in registry_url and "/" in registry_url.split(":")[1] else registry_url
+        # Extract just the host (before first /)
+        if "/" in url:
+            return url.split("/")[0]
+        return url
+
     def login(self, registry_url: str, username: str, password: str) -> tuple[bool, str | None]:
         """Login to a container registry using spin registry login.
-        
+
         Requirements: 7.1, 7.5
-        
+
         Args:
             registry_url: URL of the container registry (e.g., ECR URL)
             username: Registry username
             password: Registry password
-            
+
         Returns:
             Tuple of (success, error_message)
             - success: True if login succeeded
             - error_message: Error details if failed, None otherwise
         """
+        # Extract just the registry host for login (ECR needs host only, not repo)
+        registry_host = self._extract_registry_host(registry_url)
+
         try:
             result = subprocess.run(
                 [
                     "spin", "registry", "login",
                     "-u", username,
                     "-p", password,
-                    registry_url
+                    registry_host
                 ],
                 capture_output=True,
                 text=True,
