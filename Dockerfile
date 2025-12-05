@@ -46,9 +46,10 @@ RUN curl -fsSL "https://github.com/spinframework/spin/releases/download/${SPIN_V
     rm -rf spin.tar.gz *.pem *.sig README.md LICENSE
 
 # Create venv template with componentize-py and spin-sdk
+# Pin versions for compatibility (componentize-py 0.17.2 works with spin-sdk 3.4.1)
 RUN python3 -m venv /opt/spin-python-venv && \
     /opt/spin-python-venv/bin/pip install --upgrade pip && \
-    /opt/spin-python-venv/bin/pip install componentize-py spin-sdk
+    /opt/spin-python-venv/bin/pip install componentize-py==0.17.2 spin-sdk==3.4.1
 
 # -----------------------------------------------------------------------------
 # Stage 3: Runtime - Final production image
