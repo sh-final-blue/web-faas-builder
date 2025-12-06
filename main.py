@@ -3,9 +3,12 @@
 import logging
 import os
 import sys
-from fastapi import FastAPI, Request
+import time
+import json
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from src.api.routes import router as api_router
 
@@ -30,6 +33,48 @@ logger = logging.getLogger(__name__)
 logger.info(f"Log level set to: {LOG_LEVEL}")
 
 
+class RequestResponseLoggingMiddleware(BaseHTTPMiddleware):
+    """Middleware to log detailed request and response information."""
+
+    async def dispatch(self, request: Request, call_next):
+        # Skip health check endpoints
+        if request.url.path == "/health":
+            return await call_next(request)
+
+        # Log request
+        start_time = time.time()
+
+        # Get request body for POST/PUT
+        body = None
+        if request.method in ["POST", "PUT", "PATCH"]:
+            try:
+                body = await request.body()
+                # Reset body for downstream handlers
+                async def receive():
+                    return {"type": "http.request", "body": body}
+                request._receive = receive
+            except Exception:
+                body = None
+
+        logger.info(f">>> REQUEST: {request.method} {request.url.path}")
+        logger.info(f"    Query: {dict(request.query_params)}")
+        logger.info(f"    Headers: {dict(request.headers)}")
+        if body and len(body) < 1000:  # Don't log large bodies
+            try:
+                logger.info(f"    Body: {body.decode('utf-8', errors='ignore')[:500]}")
+            except Exception:
+                logger.info(f"    Body: <binary data, {len(body)} bytes>")
+
+        # Process request
+        response = await call_next(request)
+
+        # Log response
+        duration = time.time() - start_time
+        logger.info(f"<<< RESPONSE: {response.status_code} ({duration:.3f}s)")
+
+        return response
+
+
 # Filter out health check logs from uvicorn access logs
 class HealthCheckFilter(logging.Filter):
     """Filter to exclude health check endpoint logs."""
@@ -43,6 +88,9 @@ app = FastAPI(
     description="FastAPI-based API server for building, pushing, and deploying Spin applications to Kubernetes",
     version="0.1.0",
 )
+
+# Add request/response logging middleware
+app.add_middleware(RequestResponseLoggingMiddleware)
 
 # Configure CORS
 app.add_middleware(
