@@ -8,10 +8,17 @@ This module provides functionality to:
 Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6
 """
 
+import base64
 import hashlib
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+
+try:
+    import boto3
+    BOTO3_AVAILABLE = True
+except ImportError:
+    BOTO3_AVAILABLE = False
 
 
 @dataclass
@@ -90,15 +97,54 @@ class PushService:
             return url.split("/")[0]
         return url
 
-    def login(self, registry_url: str, username: str, password: str) -> tuple[bool, str | None]:
+    def _get_ecr_credentials(self, registry_url: str) -> tuple[str, str] | None:
+        """Get ECR credentials using IRSA (IAM Roles for Service Accounts).
+        
+        Uses boto3 to get ECR authorization token. IRSA automatically provides
+        AWS credentials via environment variables injected by the EKS webhook.
+        
+        Args:
+            registry_url: ECR registry URL
+            
+        Returns:
+            Tuple of (username, password) if successful, None otherwise
+        """
+        if not BOTO3_AVAILABLE:
+            return None
+            
+        try:
+            # boto3 automatically uses IRSA credentials from environment
+            ecr_client = boto3.client('ecr')
+            
+            # Get authorization token
+            response = ecr_client.get_authorization_token()
+            
+            if not response.get('authorizationData'):
+                return None
+                
+            auth_data = response['authorizationData'][0]
+            auth_token = auth_data['authorizationToken']
+            
+            # Decode base64 token (format: username:password)
+            decoded = base64.b64decode(auth_token).decode('utf-8')
+            username, password = decoded.split(':', 1)
+            
+            return username, password
+            
+        except Exception:
+            return None
+
+    def login(self, registry_url: str, username: str | None = None, password: str | None = None) -> tuple[bool, str | None]:
         """Login to a container registry using spin registry login.
+        
+        For ECR registries, automatically uses IRSA credentials if username/password not provided.
 
         Requirements: 7.1, 7.5
 
         Args:
             registry_url: URL of the container registry (e.g., ECR URL)
-            username: Registry username
-            password: Registry password
+            username: Registry username (optional for ECR with IRSA)
+            password: Registry password (optional for ECR with IRSA)
 
         Returns:
             Tuple of (success, error_message)
@@ -107,6 +153,17 @@ class PushService:
         """
         # Extract just the registry host for login (ECR needs host only, not repo)
         registry_host = self._extract_registry_host(registry_url)
+        
+        # If username/password not provided and this is ECR, try IRSA
+        if not username or not password:
+            if 'ecr' in registry_host and 'amazonaws.com' in registry_host:
+                credentials = self._get_ecr_credentials(registry_url)
+                if credentials:
+                    username, password = credentials
+                else:
+                    return False, "Failed to get ECR credentials via IRSA. Ensure IAM role is properly configured."
+            else:
+                return False, "Username and password required for non-ECR registries"
 
         try:
             result = subprocess.run(
@@ -205,19 +262,21 @@ class PushService:
         self,
         app_dir: Path,
         registry_url: str,
-        username: str,
-        password: str,
+        username: str | None = None,
+        password: str | None = None,
         tag: str | None = None
     ) -> PushResult:
         """Execute the complete push pipeline: login and push.
+        
+        For ECR registries, automatically uses IRSA credentials if username/password not provided.
         
         Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6
         
         Args:
             app_dir: Path to the application directory
             registry_url: URL of the container registry
-            username: Registry username
-            password: Registry password
+            username: Registry username (optional for ECR with IRSA)
+            password: Registry password (optional for ECR with IRSA)
             tag: Optional custom tag. If not provided, generates SHA256 tag.
             
         Returns:

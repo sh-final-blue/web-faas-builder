@@ -632,8 +632,8 @@ def run_build_and_push_task(
     file_content: bytes,
     filename: str,
     registry_url: str,
-    username: str,
-    password: str,
+    username: str | None,
+    password: str | None,
     tag: str | None,
     app_name: str | None,
     workspace_id: str,
@@ -645,7 +645,7 @@ def run_build_and_push_task(
     2. Handles file (zip or single .py)
     3. Uploads source to S3
     4. If Core Service is configured: calls Core Service for build and push
-    5. Otherwise: validates with MyPy, builds locally, and pushes locally
+    5. Otherwise: validates with MyPy, builds locally, and pushes locally (uses IRSA for ECR auth)
     6. Updates task status to PUSHING, then DONE or FAILED (via DynamoDB)
     
     Requirements: 6.1, 6.7
@@ -835,10 +835,9 @@ def run_build_and_push_task(
 async def build_and_push(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
-    registry_url: str = Form(...),
-    username: str = Form(...),
-    password: str = Form(...),
     workspace_id: str = Form(...),
+    username: str | None = Form(None),
+    password: str | None = Form(None),
     tag: str | None = Form(None),
     app_name: str | None = Form(None),
 ) -> BuildResponse:
@@ -848,10 +847,17 @@ async def build_and_push(
     When Core Service is configured, uploads source to S3 and calls Core Service.
     Otherwise, falls back to local subprocess execution.
     
+    ECR registry URL is automatically set to: 217350599014.dkr.ecr.ap-northeast-2.amazonaws.com/blue-final-faas-app
+    Authentication uses IRSA (IAM Roles for Service Accounts) automatically - username/password are optional.
+    
     Requirements: 6.1, 6.7 - Start combined operation as background task
     Requirements: 16.1, 16.2, 16.3 - Use Core Service when configured, Mock API otherwise
     Requirements: 17.1, 17.2 - Store task in DynamoDB with workspace_id
     """
+    # Use ECR registry URL from config (automatically set)
+    from src.config import config
+    registry_url = config.ecr_registry_url
+    
     # Generate S3 source path for response
     import uuid
     preliminary_task_id = str(uuid.uuid4())
