@@ -135,9 +135,18 @@ class BuildTaskItem:
             return None
 
         # Get status - support both uppercase and mixed case
+        # Map core-service status values to this API's enum
         status_str = get_field("Status", "status") or "PENDING"
+        status_mapping = {
+            "COMPLETED": "DONE",
+            "SUCCESS": "DONE",
+            "RUNNING": "BUILDING",
+            "IN_PROGRESS": "BUILDING",
+        }
+        normalized_status = status_str.upper()
+        mapped_status = status_mapping.get(normalized_status, normalized_status)
         try:
-            status = BuildStatus(status_str.upper())
+            status = BuildStatus(mapped_status)
         except ValueError:
             status = BuildStatus.PENDING
 
