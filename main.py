@@ -1,17 +1,27 @@
 """FastAPI application for Spin K8s Deployment Tool."""
 
 import logging
+import os
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from src.api.routes import router as api_router
 
+# Configure logging level from environment variable
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(
+    level=getattr(logging, LOG_LEVEL, logging.INFO),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+logger.info(f"Log level set to: {LOG_LEVEL}")
+
 
 # Filter out health check logs from uvicorn access logs
 class HealthCheckFilter(logging.Filter):
     """Filter to exclude health check endpoint logs."""
-    
+
     def filter(self, record: logging.LogRecord) -> bool:
         """Return False for health check requests to exclude them from logs."""
         return "/health" not in record.getMessage()
