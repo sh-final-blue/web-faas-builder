@@ -556,7 +556,9 @@ async def deploy(request: DeployRequest) -> DeployResponse:
     )
     
     # Generate app name if not provided (Requirement 10.7)
-    app_name = request.app_name or deploy_service.generate_app_name()
+    # Sanitize app_name: remove spaces, hyphens, underscores for K8s compatibility
+    raw_app_name = request.app_name or deploy_service.generate_app_name()
+    app_name = raw_app_name.replace(" ", "").replace("-", "").replace("_", "").strip().lower()
     
     # Parse custom tolerations (Requirement 14.4)
     custom_tolerations: list[Toleration] = []
