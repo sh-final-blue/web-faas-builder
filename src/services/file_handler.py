@@ -10,6 +10,7 @@ Requirements: 3.1, 3.2, 3.3, 3.4
 import io
 import zipfile
 import tempfile
+import logging
 from pathlib import Path
 from dataclasses import dataclass
 
@@ -43,6 +44,8 @@ class FileHandlerResult:
 
 class FileHandler:
     """Service for handling uploaded files."""
+    def __init__(self) -> None:
+        self.logger = logging.getLogger(__name__)
 
     def handle_zip(self, zip_data: bytes, work_dir: Path) -> FileHandlerResult:
         """Extract zip and verify spin.toml exists.
@@ -122,6 +125,33 @@ class FileHandler:
             FileHandlerResult with success status and app directory or error
         """
         try:
+            decoded = py_content.decode("utf-8")
+
+            # If users provided init_incoming_handler but not IncomingHandler class,
+            # inject a lightweight shim so spin-http can find the expected class.
+            if "class IncomingHandler" not in decoded and "init_incoming_handler" in decoded:
+                self.logger.info("Auto-injecting IncomingHandler shim for %s", filename)
+                shim = """
+
+# Auto-generated shim to expose IncomingHandler for spin-python runtime
+from spin_sdk.http import IncomingHandler as _BaseIncomingHandler
+
+try:
+    _factory = init_incoming_handler
+except NameError:
+    _factory = None
+
+if _factory is not None:
+    class IncomingHandler(_BaseIncomingHandler):
+        def __init__(self):
+            self._delegate = _factory()
+
+        def handle_request(self, request):
+            return self._delegate.handle_request(request)
+"""
+                decoded = decoded + shim
+                py_content = decoded.encode("utf-8")
+
             # Extract module name from filename (without .py extension)
             module_name = Path(filename).stem
             
