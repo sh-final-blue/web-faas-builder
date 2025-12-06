@@ -67,22 +67,22 @@ class BuildTaskItem:
     @property
     def pk(self) -> str:
         """Generate DynamoDB Partition Key.
-        
-        Format: ws#{workspace_id}
+
+        Format: WS#{workspace_id}
         """
-        return f"ws#{self.workspace_id}"
-    
+        return f"WS#{self.workspace_id}"
+
     @property
     def sk(self) -> str:
         """Generate DynamoDB Sort Key.
-        
-        Format: build#{task_id}
+
+        Format: BUILD#{task_id}
         """
-        return f"build#{self.task_id}"
+        return f"BUILD#{self.task_id}"
     
     def to_dynamodb_item(self) -> dict:
         """Convert to DynamoDB item format.
-        
+
         Returns:
             Dictionary with DynamoDB attribute value format.
         """
@@ -90,18 +90,20 @@ class BuildTaskItem:
             "PK": {"S": self.pk},
             "SK": {"S": self.sk},
             "Type": {"S": "BuildTask"},
-            "AppName": {"S": self.app_name},
-            "Status": {"S": self.status.value},
-            "SourceCodePath": {"S": self.source_code_path},
-            "CreatedAt": {"S": self.created_at.isoformat()},
-            "UpdatedAt": {"S": self.updated_at.isoformat()},
+            "task_id": {"S": self.task_id},
+            "workspace_id": {"S": self.workspace_id},
+            "app_name": {"S": self.app_name},
+            "status": {"S": self.status.value},
+            "source_code_path": {"S": self.source_code_path},
+            "created_at": {"S": self.created_at.isoformat()},
+            "updated_at": {"S": self.updated_at.isoformat()},
         }
         if self.wasm_path:
-            item["WasmPath"] = {"S": self.wasm_path}
+            item["wasm_path"] = {"S": self.wasm_path}
         if self.image_url:
-            item["ImageUrl"] = {"S": self.image_url}
+            item["image_url"] = {"S": self.image_url}
         if self.error_message:
-            item["ErrorMessage"] = {"S": self.error_message}
+            item["error_message"] = {"S": self.error_message}
         return item
     
     @classmethod
@@ -170,26 +172,26 @@ class BuildTaskItem:
     @staticmethod
     def generate_pk(workspace_id: str) -> str:
         """Generate PK from workspace_id.
-        
+
         Args:
             workspace_id: The workspace identifier.
-            
+
         Returns:
-            PK in format ws#{workspace_id}
+            PK in format WS#{workspace_id}
         """
-        return f"ws#{workspace_id}"
-    
+        return f"WS#{workspace_id}"
+
     @staticmethod
     def generate_sk(task_id: str) -> str:
         """Generate SK from task_id.
-        
+
         Args:
             task_id: The task identifier.
-            
+
         Returns:
-            SK in format build#{task_id}
+            SK in format BUILD#{task_id}
         """
-        return f"build#{task_id}"
+        return f"BUILD#{task_id}"
 
 
 
@@ -277,10 +279,10 @@ class DynamoDBService:
         error_message: Optional[str] = None,
     ) -> bool:
         """Update build task status in DynamoDB.
-        
-        Updates Status and UpdatedAt fields. Optionally updates WasmPath,
-        ImageUrl, and ErrorMessage fields.
-        
+
+        Updates status and updated_at fields. Optionally updates wasm_path,
+        image_url, and error_message fields.
+
         Args:
             workspace_id: The workspace identifier.
             task_id: The task identifier.
@@ -288,29 +290,29 @@ class DynamoDBService:
             wasm_path: S3 path to WASM artifact (optional).
             image_url: ECR image URI (optional).
             error_message: Error details (optional).
-            
+
         Returns:
             True if successful, False otherwise.
-            
+
         **Validates: Requirements 17.3, 17.4, 17.5, 17.6**
         """
-        update_expr = "SET #status = :status, UpdatedAt = :updated_at"
-        expr_names = {"#status": "Status"}
+        update_expr = "SET #status = :status, updated_at = :updated_at"
+        expr_names = {"#status": "status"}
         expr_values = {
             ":status": {"S": status.value},
             ":updated_at": {"S": datetime.utcnow().isoformat()},
         }
-        
+
         if wasm_path is not None:
-            update_expr += ", WasmPath = :wasm_path"
+            update_expr += ", wasm_path = :wasm_path"
             expr_values[":wasm_path"] = {"S": wasm_path}
         if image_url is not None:
-            update_expr += ", ImageUrl = :image_url"
+            update_expr += ", image_url = :image_url"
             expr_values[":image_url"] = {"S": image_url}
         if error_message is not None:
-            update_expr += ", ErrorMessage = :error_message"
+            update_expr += ", error_message = :error_message"
             expr_values[":error_message"] = {"S": error_message}
-        
+
         try:
             self.client.update_item(
                 TableName=self.table_name,
