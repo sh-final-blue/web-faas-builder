@@ -156,14 +156,17 @@ if _factory is not None:
                 py_content = decoded.encode("utf-8")
 
             # Extract module name from filename (without .py extension)
-            module_name = Path(filename).stem.strip()
+            # Replace spaces with underscores for valid Python module name
+            module_name = Path(filename).stem.strip().replace(" ", "_")
 
-            # Generate app name (replace underscores with hyphens for K8s compatibility)
+            # Generate app name (replace underscores/spaces with hyphens for K8s compatibility)
             # Also strip whitespace to prevent spin.toml parsing errors
-            app_name = module_name.replace("_", "-").strip()
+            app_name = module_name.replace("_", "-").replace(" ", "-").strip()
             
             # Write Python file to work directory
-            py_path = work_dir / filename
+            # Use sanitized filename (module_name + .py) to match spin.toml
+            sanitized_filename = f"{module_name}.py"
+            py_path = work_dir / sanitized_filename
             py_path.write_bytes(py_content)
             
             # Generate spin.toml with HTTP trigger configuration
