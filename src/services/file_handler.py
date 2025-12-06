@@ -159,9 +159,10 @@ if _factory is not None:
             # Replace spaces with underscores for valid Python module name
             module_name = Path(filename).stem.strip().replace(" ", "_")
 
-            # Generate app name (replace underscores/spaces with hyphens for K8s compatibility)
-            # Also strip whitespace to prevent spin.toml parsing errors
-            app_name = module_name.replace("_", "-").replace(" ", "-").strip()
+            # Generate app name: use underscores instead of hyphens to avoid spin.toml issues
+            # spin.toml requires hyphen-separated words to start with a letter
+            # Using underscores avoids this restriction entirely
+            app_name = module_name.replace(" ", "_").strip()
             
             # Write Python file to work directory
             # Use sanitized filename (module_name + .py) to match spin.toml
