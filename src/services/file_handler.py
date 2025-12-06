@@ -156,13 +156,16 @@ if _factory is not None:
                 py_content = decoded.encode("utf-8")
 
             # Extract module name from filename (without .py extension)
-            # Replace spaces with underscores for valid Python module name
-            module_name = Path(filename).stem.strip().replace(" ", "_")
+            # Remove spaces, hyphens, underscores for valid Python module name
+            # This ensures the module name matches the app name used in spin.toml
+            module_name = Path(filename).stem.strip().replace(" ", "").replace("-", "").replace("_", "")
 
-            # Generate app name: use underscores instead of hyphens to avoid spin.toml issues
-            # spin.toml requires hyphen-separated words to start with a letter
-            # Using underscores avoids this restriction entirely
-            app_name = module_name.replace(" ", "_").strip()
+            # Generate app name: same as module_name (no separators)
+            # spin.toml rules are strict:
+            # - hyphen-separated words must start with a letter (test-111 fails)
+            # - words must be separated with '-', not '_' (test_111 fails)
+            # Solution: remove all separators (test111 works)
+            app_name = module_name
             
             # Write Python file to work directory
             # Use sanitized filename (module_name + .py) to match spin.toml
