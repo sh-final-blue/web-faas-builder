@@ -2,6 +2,7 @@
 
 import logging
 import os
+import sys
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -10,10 +11,21 @@ from src.api.routes import router as api_router
 
 # Configure logging level from environment variable
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+log_level = getattr(logging, LOG_LEVEL, logging.INFO)
+
+# Configure root logger
 logging.basicConfig(
-    level=getattr(logging, LOG_LEVEL, logging.INFO),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=log_level,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    stream=sys.stdout,
+    force=True
 )
+
+# Set uvicorn loggers to same level
+logging.getLogger("uvicorn").setLevel(log_level)
+logging.getLogger("uvicorn.access").setLevel(log_level)
+logging.getLogger("uvicorn.error").setLevel(log_level)
+
 logger = logging.getLogger(__name__)
 logger.info(f"Log level set to: {LOG_LEVEL}")
 
