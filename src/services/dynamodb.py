@@ -107,29 +107,55 @@ class BuildTaskItem:
     @classmethod
     def from_dynamodb_item(cls, item: dict) -> "BuildTaskItem":
         """Create BuildTaskItem from DynamoDB item format.
-        
+
+        Supports both formats:
+        - This API's format: ws#, build#, PascalCase fields
+        - Core service format: WS#, BUILD#, snake_case fields
+
         Args:
             item: DynamoDB item with attribute value format.
-            
+
         Returns:
             BuildTaskItem instance.
         """
         pk = item["PK"]["S"]
         sk = item["SK"]["S"]
-        workspace_id = pk.replace("ws#", "", 1)
-        task_id = sk.replace("build#", "", 1)
-        
+
+        # Support both ws# and WS# prefixes
+        workspace_id = pk.replace("ws#", "", 1).replace("WS#", "", 1)
+        # Support both build# and BUILD# prefixes
+        task_id = sk.replace("build#", "", 1).replace("BUILD#", "", 1)
+
+        # Helper to get field value supporting both PascalCase and snake_case
+        def get_field(pascal: str, snake: str) -> Optional[str]:
+            if pascal in item:
+                return item[pascal].get("S")
+            if snake in item:
+                return item[snake].get("S")
+            return None
+
+        # Get status - support both uppercase and mixed case
+        status_str = get_field("Status", "status") or "PENDING"
+        try:
+            status = BuildStatus(status_str.upper())
+        except ValueError:
+            status = BuildStatus.PENDING
+
+        # Parse timestamps
+        created_str = get_field("CreatedAt", "created_at") or datetime.utcnow().isoformat()
+        updated_str = get_field("UpdatedAt", "updated_at") or datetime.utcnow().isoformat()
+
         return cls(
             workspace_id=workspace_id,
             task_id=task_id,
-            app_name=item["AppName"]["S"],
-            status=BuildStatus(item["Status"]["S"]),
-            source_code_path=item["SourceCodePath"]["S"],
-            created_at=datetime.fromisoformat(item["CreatedAt"]["S"]),
-            updated_at=datetime.fromisoformat(item["UpdatedAt"]["S"]),
-            wasm_path=item.get("WasmPath", {}).get("S"),
-            image_url=item.get("ImageUrl", {}).get("S"),
-            error_message=item.get("ErrorMessage", {}).get("S"),
+            app_name=get_field("AppName", "app_name") or "unknown",
+            status=status,
+            source_code_path=get_field("SourceCodePath", "source_code_path") or "",
+            created_at=datetime.fromisoformat(created_str),
+            updated_at=datetime.fromisoformat(updated_str),
+            wasm_path=get_field("WasmPath", "wasm_path"),
+            image_url=get_field("ImageUrl", "image_url"),
+            error_message=get_field("ErrorMessage", "error_message"),
         )
     
     @staticmethod
@@ -300,63 +326,78 @@ class DynamoDBService:
         task_id: str,
     ) -> Optional[BuildTaskItem]:
         """Get a build task from DynamoDB.
-        
+
         Retrieves task by workspace_id and task_id using PK and SK.
-        
+        Supports both lowercase (ws#, build#) and uppercase (WS#, BUILD#) formats.
+
         Args:
             workspace_id: The workspace identifier.
             task_id: The task identifier.
-            
+
         Returns:
             BuildTaskItem if found, None otherwise.
-            
+
         **Validates: Requirements 17.7**
         """
-        try:
-            response = self.client.get_item(
-                TableName=self.table_name,
-                Key={
-                    "PK": {"S": BuildTaskItem.generate_pk(workspace_id)},
-                    "SK": {"S": BuildTaskItem.generate_sk(task_id)},
-                }
-            )
-            if "Item" in response:
-                return BuildTaskItem.from_dynamodb_item(response["Item"])
-            return None
-        except (ClientError, BotoCoreError):
-            return None
-        except Exception:
-            return None
+        # Try lowercase format first (this API's format)
+        pk_formats = [f"ws#{workspace_id}", f"WS#{workspace_id}"]
+        sk_formats = [f"build#{task_id}", f"BUILD#{task_id}"]
+
+        for pk in pk_formats:
+            for sk in sk_formats:
+                try:
+                    response = self.client.get_item(
+                        TableName=self.table_name,
+                        Key={
+                            "PK": {"S": pk},
+                            "SK": {"S": sk},
+                        }
+                    )
+                    if "Item" in response:
+                        return BuildTaskItem.from_dynamodb_item(response["Item"])
+                except (ClientError, BotoCoreError):
+                    continue
+                except Exception:
+                    continue
+        return None
 
     
     def list_tasks(self, workspace_id: str) -> list[BuildTaskItem]:
         """List all build tasks for a workspace.
-        
+
         Queries DynamoDB using PK and SK prefix to retrieve all build tasks
-        for the specified workspace.
-        
+        for the specified workspace. Supports both lowercase and uppercase formats.
+
         Args:
             workspace_id: The workspace identifier.
-            
+
         Returns:
             List of BuildTaskItem objects. Empty list if none found or on error.
-            
+
         **Validates: Requirements 17.8**
         """
-        try:
-            response = self.client.query(
-                TableName=self.table_name,
-                KeyConditionExpression="PK = :pk AND begins_with(SK, :sk_prefix)",
-                ExpressionAttributeValues={
-                    ":pk": {"S": BuildTaskItem.generate_pk(workspace_id)},
-                    ":sk_prefix": {"S": "build#"},
-                }
-            )
-            return [
-                BuildTaskItem.from_dynamodb_item(item)
-                for item in response.get("Items", [])
-            ]
-        except (ClientError, BotoCoreError):
-            return []
-        except Exception:
-            return []
+        all_items = []
+
+        # Query both lowercase and uppercase PK/SK formats
+        pk_formats = [f"ws#{workspace_id}", f"WS#{workspace_id}"]
+        sk_prefixes = ["build#", "BUILD#"]
+
+        for pk in pk_formats:
+            for sk_prefix in sk_prefixes:
+                try:
+                    response = self.client.query(
+                        TableName=self.table_name,
+                        KeyConditionExpression="PK = :pk AND begins_with(SK, :sk_prefix)",
+                        ExpressionAttributeValues={
+                            ":pk": {"S": pk},
+                            ":sk_prefix": {"S": sk_prefix},
+                        }
+                    )
+                    for item in response.get("Items", []):
+                        all_items.append(BuildTaskItem.from_dynamodb_item(item))
+                except (ClientError, BotoCoreError):
+                    continue
+                except Exception:
+                    continue
+
+        return all_items
