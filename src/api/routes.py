@@ -538,12 +538,15 @@ async def deploy(request: DeployRequest) -> DeployResponse:
     
     # Validate autoscaling configuration (Requirement 13.5)
     is_valid, error_msg = validate_autoscaling_config(
-        request.enable_autoscaling, 
+        request.enable_autoscaling,
         request.replicas
     )
     if not is_valid:
         raise HTTPException(status_code=400, detail=error_msg)
-    
+
+    # enable_autoscaling takes priority - ignore replicas when autoscaling is enabled
+    effective_replicas = None if request.enable_autoscaling else request.replicas
+
     # Create SpinApp manifest
     resources = ResourceLimits(
         cpu_limit=request.cpu_limit,
@@ -579,7 +582,7 @@ async def deploy(request: DeployRequest) -> DeployResponse:
         image=request.image_ref,
         service_account=request.service_account,
         resources=resources,
-        replicas=request.replicas,
+        replicas=effective_replicas,
         enable_autoscaling=request.enable_autoscaling,
         use_spot=request.use_spot,
         tolerations=custom_tolerations,

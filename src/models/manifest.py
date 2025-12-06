@@ -155,23 +155,19 @@ class NodeAffinity:
 
 def validate_autoscaling_config(enable_autoscaling: bool, replicas: Optional[int]) -> tuple[bool, Optional[str]]:
     """Validate autoscaling configuration.
-    
-    Validates that enableAutoscaling=true and replicas are mutually exclusive.
-    
+
+    When enableAutoscaling=true, replicas is ignored and autoscaling takes priority.
+
     Args:
         enable_autoscaling: Whether autoscaling is enabled
-        replicas: The replica count (should be None when autoscaling is enabled)
-        
+        replicas: The replica count (ignored when autoscaling is enabled)
+
     Returns:
         Tuple of (is_valid, error_message)
-        
+
     Requirements: 13.5
     """
-    if enable_autoscaling and replicas is not None:
-        return False, (
-            "enableAutoscaling and replicas are mutually exclusive. "
-            "When enableAutoscaling is true, replicas must not be specified."
-        )
+    # enable_autoscaling takes priority over replicas - no error, just ignore replicas
     return True, None
 
 
