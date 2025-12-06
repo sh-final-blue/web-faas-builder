@@ -33,6 +33,19 @@ logger = logging.getLogger(__name__)
 logger.info(f"Log level set to: {LOG_LEVEL}")
 
 
+# Filter out health check logs from uvicorn access logs
+class HealthCheckFilter(logging.Filter):
+    """Filter to exclude health check endpoint logs."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        """Return False for health check requests to exclude them from logs."""
+        return "/health" not in record.getMessage()
+
+
+# Apply filter to uvicorn access logger at module load time
+logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
+
+
 class RequestResponseLoggingMiddleware(BaseHTTPMiddleware):
     """Middleware to log detailed request and response information."""
 
@@ -75,14 +88,6 @@ class RequestResponseLoggingMiddleware(BaseHTTPMiddleware):
         return response
 
 
-# Filter out health check logs from uvicorn access logs
-class HealthCheckFilter(logging.Filter):
-    """Filter to exclude health check endpoint logs."""
-
-    def filter(self, record: logging.LogRecord) -> bool:
-        """Return False for health check requests to exclude them from logs."""
-        return "/health" not in record.getMessage()
-
 app = FastAPI(
     title="Spin K8s Deployment Tool",
     description="FastAPI-based API server for building, pushing, and deploying Spin applications to Kubernetes",
@@ -123,8 +128,4 @@ app.include_router(api_router, prefix="/api/v1")
 
 if __name__ == "__main__":
     import uvicorn
-    
-    # Apply health check filter to uvicorn access logger
-    logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
-    
     uvicorn.run(app, host="0.0.0.0", port=8000)
