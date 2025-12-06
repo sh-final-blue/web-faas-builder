@@ -125,6 +125,9 @@ class FileHandler:
             FileHandlerResult with success status and app directory or error
         """
         try:
+            # Strip whitespace from filename to prevent module not found errors
+            filename = filename.strip()
+
             decoded = py_content.decode("utf-8")
 
             # If users provided init_incoming_handler but not IncomingHandler class,
