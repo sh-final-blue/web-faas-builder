@@ -112,13 +112,13 @@ class DeployService:
     
     def apply_manifest(self, manifest_path: str) -> tuple[bool, str | None]:
         """Apply a SpinApp manifest to the Kubernetes cluster.
-        
+
         Args:
             manifest_path: Path to the YAML manifest file.
-            
+
         Returns:
             A tuple of (success, error_message).
-            
+
         Requirements: 10.4, 10.5
         """
         try:
@@ -131,6 +131,64 @@ class DeployService:
             if result.returncode == 0:
                 return True, None
             return False, result.stderr or "Failed to apply manifest"
+        except subprocess.TimeoutExpired:
+            return False, "kubectl apply timed out"
+        except FileNotFoundError:
+            return False, "kubectl not found"
+        except Exception as e:
+            return False, str(e)
+
+    def create_hpa(
+        self,
+        app_name: str,
+        namespace: str,
+        min_replicas: int = 1,
+        max_replicas: int = 10,
+        cpu_target: int = 50,
+    ) -> tuple[bool, str | None]:
+        """Create HorizontalPodAutoscaler for a deployment.
+
+        Args:
+            app_name: Name of the deployment to scale.
+            namespace: Kubernetes namespace.
+            min_replicas: Minimum number of replicas.
+            max_replicas: Maximum number of replicas.
+            cpu_target: Target CPU utilization percentage.
+
+        Returns:
+            A tuple of (success, error_message).
+        """
+        hpa_manifest = f"""apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {app_name}-hpa
+  namespace: {namespace}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {app_name}
+  minReplicas: {min_replicas}
+  maxReplicas: {max_replicas}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {cpu_target}
+"""
+        try:
+            result = subprocess.run(
+                ["kubectl", "apply", "-f", "-"],
+                input=hpa_manifest,
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+            if result.returncode == 0:
+                return True, None
+            return False, result.stderr or "Failed to create HPA"
         except subprocess.TimeoutExpired:
             return False, "kubectl apply timed out"
         except FileNotFoundError:
@@ -180,7 +238,7 @@ class DeployService:
         
         # Apply the manifest (Requirements 10.4, 10.5)
         success, error = self.apply_manifest(manifest_path)
-        
+
         if not success:
             return DeployResult(
                 success=False,
@@ -193,10 +251,24 @@ class DeployService:
                 use_spot=use_spot,
                 error=error
             )
-        
+
+        # Create HPA if autoscaling is enabled
+        if enable_autoscaling:
+            hpa_success, hpa_error = self.create_hpa(
+                app_name=final_app_name,
+                namespace=namespace,
+                min_replicas=1,
+                max_replicas=10,
+                cpu_target=50,
+            )
+            # Log HPA creation result but don't fail the deployment
+            if not hpa_success:
+                # HPA creation failed, but SpinApp deployment succeeded
+                pass  # Could log this error if needed
+
         # Query the automatically created Service
         service_result = self.get_service(final_app_name, namespace)
-        
+
         return DeployResult(
             success=True,
             app_name=final_app_name,

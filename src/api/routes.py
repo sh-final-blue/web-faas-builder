@@ -548,11 +548,12 @@ async def deploy(request: DeployRequest) -> DeployResponse:
     effective_replicas = None if request.enable_autoscaling else request.replicas
 
     # Create SpinApp manifest
+    # Apply default resource limits if not provided
     resources = ResourceLimits(
-        cpu_limit=request.cpu_limit,
-        memory_limit=request.memory_limit,
-        cpu_request=request.cpu_request,
-        memory_request=request.memory_request,
+        cpu_limit=request.cpu_limit or "500m",
+        memory_limit=request.memory_limit or "500Mi",
+        cpu_request=request.cpu_request or "100m",
+        memory_request=request.memory_request or "400Mi",
     )
     
     # Generate app name if not provided (Requirement 10.7)
