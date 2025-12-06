@@ -153,10 +153,11 @@ if _factory is not None:
                 py_content = decoded.encode("utf-8")
 
             # Extract module name from filename (without .py extension)
-            module_name = Path(filename).stem
-            
+            module_name = Path(filename).stem.strip()
+
             # Generate app name (replace underscores with hyphens for K8s compatibility)
-            app_name = module_name.replace("_", "-")
+            # Also strip whitespace to prevent spin.toml parsing errors
+            app_name = module_name.replace("_", "-").strip()
             
             # Write Python file to work directory
             py_path = work_dir / filename
